@@ -21,7 +21,6 @@ int dup(int);
 int getpid();
 char* sbrk(int);
 int sleep(int);
-int fcount(void);
 
 // ulib.c
 int stat(char*, struct stat*);

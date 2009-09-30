@@ -479,19 +479,3 @@ procdump(void)
   }
 }
 
-int
-fcount()
-{
-  int fd;
-  int fc = 0;
-
-  // Loop through all open files.
-  for(fd = 0; fd < NOFILE; fd++){
-    if(cp->ofile[fd]){
-      fc = fc + 1;  // Increment our file counter.
-    }
-  }
-
-  return fc;
-}
-

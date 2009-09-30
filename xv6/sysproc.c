@@ -78,16 +78,3 @@ sys_sleep(void)
   release(&tickslock);
   return 0;
 }
-
-
-
-int
-sys_fcount(void)
-{
-  int fc;
-  if(argint(0, &fc) < 0)
-    return -1;
-  return fcount(fc);
-}
-
-
