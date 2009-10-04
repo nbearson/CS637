@@ -6,6 +6,8 @@
 #include "proc.h"
 #include "spinlock.h"
 
+#define TRACEPROCS 1
+
 struct spinlock proc_table_lock;
 
 struct proc proc[NPROC];
@@ -203,6 +205,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c;
   int i;
+  int lastpid;
 
   c = &cpus[cpu()];
   for(;;){
@@ -222,6 +225,13 @@ scheduler(void)
       c->curproc = p;
       setupsegs(p);
       p->state = RUNNING;
+
+      if(TRACEPROCS && p->pid != lastpid)
+      {
+        cprintf("Running pid[%d] name[%s]\n", p->pid, p->name);
+        lastpid = p->pid;
+      }
+
       swtch(&c->context, &p->context);
 
       // Process is done running for now.
@@ -477,5 +487,21 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+fcount()
+{
+  int fd;
+  int fc = 0;
+
+  // Loop through all open files.
+  for(fd = 0; fd < NOFILE; fd++){
+    if(cp->ofile[fd]){
+      fc = fc + 1;  // Increment our file counter.
+    }
+  }
+
+  return fc;
 }
 
