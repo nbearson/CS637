@@ -17,6 +17,28 @@ int nextpid = 1;
 extern void forkret(void);
 extern void forkret1(struct trapframe*);
 
+
+/* Next two functions were taken from Kernighan & Ritchie's
+   2nd edition C PROGRAMMING LANGUAGE manual, pg 46 where
+   they outline the simple pseudo-random number generator
+   used below. */
+
+unsigned long int next = 1;
+
+/* rand: return pseudo-random integer on 0..32767 */
+int rand(void)
+{
+  next = next * 1103515245 + 12345;
+  return (unsigned int)(next/65536) % 32768;
+}
+
+/* srand: set seed for rand() */
+void srand(unsigned int seed)
+{
+  next = seed;
+}
+
+
 void
 pinit(void)
 {
@@ -38,6 +60,7 @@ allocproc(void)
     if(p->state == UNUSED){
       p->state = EMBRYO;
       p->pid = nextpid++;
+      p->tickets = 1;
       release(&proc_table_lock);
       return p;
     }
@@ -156,6 +179,8 @@ userinit(void)
   extern uchar _binary_initcode_start[], _binary_initcode_size[];
   
   p = copyproc(0);
+  p->tickets = 1;
+  p->state = RUNNABLE;
   p->sz = PAGE;
   p->mem = kalloc(p->sz);
   p->cwd = namei("/");
@@ -176,7 +201,7 @@ userinit(void)
   memmove(p->mem, _binary_initcode_start, (int)_binary_initcode_size);
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->state = RUNNABLE;
-  
+
   initproc = p;
 }
 
@@ -205,7 +230,6 @@ scheduler(void)
   struct proc *p;
   struct cpu *c;
   int i;
-  int lastpid;
 
   c = &cpus[cpu()];
   for(;;){
@@ -225,13 +249,6 @@ scheduler(void)
       c->curproc = p;
       setupsegs(p);
       p->state = RUNNING;
-
-      if(TRACEPROCS && p->pid != lastpid)
-      {
-        cprintf("Running pid[%d] name[%s]\n", p->pid, p->name);
-        lastpid = p->pid;
-      }
-
       swtch(&c->context, &p->context);
 
       // Process is done running for now.
@@ -479,7 +496,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+    cprintf("%d %s %s %d", p->pid, state, p->name, p->tickets);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context.ebp+2, pc);
       for(j=0; j<10 && pc[j] != 0; j++)
@@ -504,4 +521,83 @@ fcount()
 
   return fc;
 }
+
+void
+lottoscheduler(void)
+{
+  struct proc *p;
+  struct cpu *c;
+  int i;
+  int lastpid;
+  int totaltickets;
+  int ticketcounter = 0;
+
+  c = &cpus[cpu()];
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    totaltickets = 0;
+    ticketcounter = 0;
+
+    // Loop over process table to count tickets.
+    acquire(&proc_table_lock);
+    for(i = 0; i < NPROC; i++){
+      p = &proc[i];
+      if(p->state == RUNNABLE)
+      {
+        totaltickets += p->tickets;
+        cprintf("pid[%d]   tickets[%d]", i, p->tickets);
+      }
+    }
+
+    cprintf("totaltickets[%d]\n", totaltickets);
+    int luckynumber = rand() % totaltickets;
+    cprintf("luckynumber[%d]\n", luckynumber);
+
+    // Loop over process table looking for process to run.
+    for(i = 0; i < NPROC; i++){
+      p = &proc[i];
+      if(p->state != RUNNABLE)
+      {
+        cprintf("process [%d] not runnable\n", p->pid);
+        continue;
+      }
+
+      // Add the process' tickets to the ticket counter
+      // we will switch to this process if it's >= the
+      // generated lucky number.
+      ticketcounter += p->tickets;
+
+      if(luckynumber >= ticketcounter)
+        continue;
+      else{
+        // Switch to chosen process.  It is the process's job
+        // to release proc_table_lock and then reacquire it
+        // before jumping back to us.
+        c->curproc = p;
+        setupsegs(p);
+        p->state = RUNNING;
+
+
+        if(TRACEPROCS && p->pid != lastpid)
+        {
+          cprintf("Running pid[%d] name[%s] tickets[%d]\n", p->pid, p->name, p->tickets);
+          lastpid = p->pid;
+        }
+
+        swtch(&c->context, &p->context);
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->curproc = 0;
+        setupsegs(0);
+        break;
+      }
+    }
+    release(&proc_table_lock);
+
+  }
+}
+
 

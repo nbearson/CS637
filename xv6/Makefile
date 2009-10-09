@@ -24,7 +24,7 @@ OBJS = \
 	trapasm.o\
 	trap.o\
 	vectors.o\
-#        fcount.o\
+
 
 # Cross-compiling (e.g., on Mac OS X)
 #TOOLPREFIX = i386-jos-elf-
@@ -107,11 +107,11 @@ UPROGS=\
 	_mkdir\
 	_rm\
 	_sh\
-	_usertests\
 	_wc\
 	_zombie\
         _fcount\
         _schedtest\
+#	_usertests\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

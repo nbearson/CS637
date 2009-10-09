@@ -8,3 +8,4 @@
 #define NINODE       50  // maximum number of active i-nodes
 #define NDEV         10  // maximum major device number
 #define ROOTDEV       1  // device number of file system root disk
+#define PICKSCHED     1  // 0 = rr, 1 = lottery

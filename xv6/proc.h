@@ -41,6 +41,7 @@ struct proc {
   struct context context;   // Switch here to run process
   struct trapframe *tf;     // Trap frame for current interrupt
   char name[16];            // Process name (debugging)
+  int tickets;              // Number of tickets the process holds
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -67,3 +68,4 @@ extern int ncpu;
 // "cp" is a short alias for curproc().
 // It gets used enough to make this worthwhile.
 #define cp curproc()
+
