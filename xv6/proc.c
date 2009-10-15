@@ -14,6 +14,9 @@ struct proc proc[NPROC];
 static struct proc *initproc;
 
 int nextpid = 1;
+
+static int totaltickets = 0;
+
 extern void forkret(void);
 extern void forkret1(struct trapframe*);
 
@@ -61,6 +64,8 @@ allocproc(void)
       p->state = EMBRYO;
       p->pid = nextpid++;
       p->tickets = 1;
+      p->timesrun = 0;
+      totaltickets = totaltickets + p->tickets;
       release(&proc_table_lock);
       return p;
     }
@@ -151,6 +156,9 @@ copyproc(struct proc *p)
       np->kstack = 0;
       np->state = UNUSED;
       np->parent = 0;
+      np->tickets = 1;
+      np->timesrun = 0;
+      totaltickets = totaltickets + np->tickets;
       return 0;
     }
     memmove(np->mem, p->mem, np->sz);
@@ -179,8 +187,6 @@ userinit(void)
   extern uchar _binary_initcode_start[], _binary_initcode_size[];
   
   p = copyproc(0);
-  p->tickets = 1;
-  p->state = RUNNABLE;
   p->sz = PAGE;
   p->mem = kalloc(p->sz);
   p->cwd = namei("/");
@@ -201,6 +207,9 @@ userinit(void)
   memmove(p->mem, _binary_initcode_start, (int)_binary_initcode_size);
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->state = RUNNABLE;
+  p->tickets = 5;
+  p->timesrun = 0;
+  totaltickets= totaltickets + 5;
 
   initproc = p;
 }
@@ -496,7 +505,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %s %s %d", p->pid, state, p->name, p->tickets);
+    cprintf("%d  state[%s]  name[%s]  tickets[%d]  timesrun[%d]", p->pid, state, p->name, p->tickets, p->timesrun);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context.ebp+2, pc);
       for(j=0; j<10 && pc[j] != 0; j++)
@@ -522,6 +531,30 @@ fcount()
   return fc;
 }
 
+int
+settickets(int pid, int newticks)
+{
+  struct proc *p;
+  int i;
+
+//  acquire(&proc_table_lock);
+
+  for(i = 0; i < NPROC; i++)
+  {
+    p = &proc[i];
+    if(p->pid == pid)
+    {
+      totaltickets = totaltickets + (newticks - p->tickets);
+      p->tickets = newticks;
+      return 0;
+    } 
+  } 
+
+
+//  release(&proc_table_lock);
+  return -1;
+}
+
 void
 lottoscheduler(void)
 {
@@ -529,70 +562,56 @@ lottoscheduler(void)
   struct cpu *c;
   int i;
   int lastpid;
-  int totaltickets;
-  int ticketcounter = 0;
 
   c = &cpus[cpu()];
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
-    totaltickets = 0;
-    ticketcounter = 0;
-
     // Loop over process table to count tickets.
     acquire(&proc_table_lock);
-    for(i = 0; i < NPROC; i++){
-      p = &proc[i];
-      if(p->state == RUNNABLE)
-      {
-        totaltickets += p->tickets;
-        cprintf("pid[%d]   tickets[%d]", i, p->tickets);
-      }
-    }
 
-    cprintf("totaltickets[%d]\n", totaltickets);
+    //cprintf("totaltickets[%d]\n", totaltickets);
     int luckynumber = rand() % totaltickets;
-    cprintf("luckynumber[%d]\n", luckynumber);
+    //cprintf("luckynumber[%d]\n", luckynumber);
 
     // Loop over process table looking for process to run.
     for(i = 0; i < NPROC; i++){
       p = &proc[i];
-      if(p->state != RUNNABLE)
+      luckynumber = luckynumber - p->tickets;
+
+      if(luckynumber <= 0)
       {
-        cprintf("process [%d] not runnable\n", p->pid);
-        continue;
-      }
-
-      // Add the process' tickets to the ticket counter
-      // we will switch to this process if it's >= the
-      // generated lucky number.
-      ticketcounter += p->tickets;
-
-      if(luckynumber >= ticketcounter)
-        continue;
-      else{
-        // Switch to chosen process.  It is the process's job
-        // to release proc_table_lock and then reacquire it
-        // before jumping back to us.
-        c->curproc = p;
-        setupsegs(p);
-        p->state = RUNNING;
-
-
-        if(TRACEPROCS && p->pid != lastpid)
+        if(p->state != RUNNABLE)
         {
-          cprintf("Running pid[%d] name[%s] tickets[%d]\n", p->pid, p->name, p->tickets);
-          lastpid = p->pid;
+          //cprintf("process [%d] not runnable\n", p->pid);
+          continue;
         }
+        else{
+          // Switch to chosen process.  It is the process's job
+          // to release proc_table_lock and then reacquire it
+          // before jumping back to us.
+          c->curproc = p;
+          setupsegs(p);
+          p->state = RUNNING;
 
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->curproc = 0;
-        setupsegs(0);
-        break;
+          if(TRACEPROCS && p->pid != lastpid)
+          {
+            //cprintf("Running pid[%d] name[%s] tickets[%d] totaltickets[%d]\n", p->pid, p->name, p->tickets, totaltickets);
+            lastpid = p->pid;
+          }
+
+          p->timesrun += 1;
+
+          swtch(&c->context, &p->context);
+
+          // Process is done running for now.
+          // It should have changed its p->state before coming back.
+          c->curproc = 0;
+          setupsegs(0);
+          break;
+        }
       }
     }
     release(&proc_table_lock);

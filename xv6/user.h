@@ -22,6 +22,7 @@ int getpid();
 char* sbrk(int);
 int sleep(int);
 int fcount(void);
+int setticks(int pid, int newticks);
 
 // ulib.c
 int stat(char*, struct stat*);

@@ -90,4 +90,11 @@ sys_fcount(void)
   return fcount(fc);
 }
 
-
+int
+sys_setticks(void)
+{
+  int pid, newticks;
+  if(argint(0, &pid) < 0 || argint(1, &newticks) < 0)
+    return -1;
+  return settickets(pid, newticks); 
+}

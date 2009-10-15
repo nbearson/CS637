@@ -20,3 +20,4 @@
 #define SYS_sbrk   19
 #define SYS_sleep  20
 #define SYS_fcount 21
+#define SYS_setticks 22
