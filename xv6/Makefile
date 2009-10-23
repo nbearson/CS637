@@ -111,7 +111,7 @@ UPROGS=\
 	_zombie\
         _fcount\
         _schedtest\
-#	_usertests\
+	_usertests\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

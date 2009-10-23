@@ -6,10 +6,16 @@
 #include <assert.h>
 #include "types.h"
 #include "fs.h"
-
+/*
 int nblocks = 995;
 int ninodes = 200;
 int size = 1024;
+*/
+
+int nblocks = 1994;
+int ninodes = 200*2;
+int size = 1024*2;
+
 
 int fsfd;
 struct superblock sb;
@@ -84,6 +90,12 @@ main(int argc, char *argv[])
   printf("used %d (bit %d ninode %lu) free %u total %d\n", usedblocks,
          bitblocks, ninodes/IPB + 1, freeblock, nblocks+usedblocks);
 
+// 54 1 51 54 54 2044
+
+  printf("nblocks [%d] + usedblocks [%d] == size [%d]\n", nblocks, usedblocks, size);
+
+// 1990 + 54 == 2048
+
   assert(nblocks + usedblocks == size);
 
   for(i = 0; i < nblocks + usedblocks; i++)
@@ -139,6 +151,7 @@ main(int argc, char *argv[])
   din.size = xint(off);
   winode(rootino, &din);
 
+  printf("Calling: balloc(%d)\n", usedblocks);
   balloc(usedblocks);
 
   exit(0);
@@ -224,7 +237,7 @@ balloc(int used)
   int i;
 
   printf("balloc: first %d blocks have been allocated\n", used);
-  assert(used < 512);
+//  assert(used < 512);
   bzero(buf, 512);
   for(i = 0; i < used; i++) {
     buf[i/8] = buf[i/8] | (0x1 << (i%8));
