@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "types.h"
 #include "fs.h"
+#include <stdbool.h>  // For booleans in our bitmap
 
 int nblocks = 995;
 int ninodes = 200;
@@ -18,6 +19,8 @@ uint freeblock;
 uint usedblocks;
 uint bitblocks;
 uint freeinode = 1;
+
+char ibitmap[200];
 
 void balloc(int);
 void wsect(uint, void*);
@@ -76,6 +79,19 @@ main(int argc, char *argv[])
   sb.size = xint(size);
   sb.nblocks = xint(nblocks); // so whole disk is size sectors
   sb.ninodes = xint(ninodes);
+  sb.ibitmap = &ibitmap;
+
+  printf("bitmap copied.\n");
+  printf("ninodes: %d\n", ninodes);
+  // zero out our bitmap
+  int c;
+  for(c=0; c < ninodes; c++)
+  {
+//    printf("zeroing bitmap [%d]\n", c);
+    ibitmap[c] = 0;
+  }
+
+  printf("bitmap done zeroing.\n");
 
   bitblocks = size/(512*8) + 1;
   usedblocks = ninodes / IPB + 3 + bitblocks;

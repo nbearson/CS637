@@ -272,6 +272,28 @@ ialloc(uint dev, short type)
   struct superblock sb;
 
   readsb(dev, &sb);
+//    printf("starting sb loop\n");
+
+  for(inum = 1; inum < sb.ninodes; inum++)
+  {
+//      printf("looking at inum [%d]\n", inum);
+
+    if(sb.ibitmap[inum] == 0)
+    {
+//      printf("inum [%d] == 0\n", inum);
+      bp = bread(dev, IBLOCK(inum));
+      dip = (struct dinode*)bp->data + inum%IPB;
+      memset(dip, 0, sizeof(*dip));
+      dip->type = type;
+      bwrite(bp);
+      brelse(bp);
+      sb.ibitmap[inum] = 1;
+      return iget(dev, inum);
+    }
+  }
+
+
+/*
   for(inum = 1; inum < sb.ninodes; inum++){  // loop over inode blocks
     bp = bread(dev, IBLOCK(inum));
     dip = (struct dinode*)bp->data + inum%IPB;
@@ -283,7 +305,7 @@ ialloc(uint dev, short type)
       return iget(dev, inum);
     }
     brelse(bp);
-  }
+  }*/
   panic("ialloc: no inodes");
 }
 

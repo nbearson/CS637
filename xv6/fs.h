@@ -12,7 +12,9 @@ struct superblock {
   uint size;         // Size of file system image (blocks)
   uint nblocks;      // Number of data blocks
   uint ninodes;      // Number of inodes.
+  char *ibitmap;    // inode bitmap
 };
+
 
 #define NADDRS (NDIRECT+1)
 #define NDIRECT 12
